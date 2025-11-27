@@ -1,5 +1,5 @@
-from flask import Flask, request, jsonify
-from twilio.rest import Client
+from flask import Flask, request, jsonify, Response
+from twilio.twiml.voice_response import VoiceResponse
 import os
 
 app = Flask(__name__)
@@ -115,7 +115,23 @@ def twilio_call():
             "error": str(e)
         }), 500
 
-
+@app.route("/twilio/voice", methods=["POST"])
+def twilio_voice():
+    """TwiML renvoyé à Twilio pour l'appel vocal."""
+    resp = VoiceResponse()
+    resp.say(
+        "Bonjour Michel. Ceci est un appel de test depuis l'application Excel et Twilio.",
+        voice="alice",
+        language="fr-CA"
+    )
+    resp.pause(length=1)
+    resp.say(
+        "Tout fonctionne correctement. Au revoir et à bientôt.",
+        voice="alice",
+        language="fr-CA"
+    )
+    return Response(str(resp), mimetype="text/xml")
+    
 # Point d'entrée pour gunicorn : "gunicorn app:app"
 if __name__ == "__main__":
     # Utile uniquement si tu lances l'app en local
