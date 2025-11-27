@@ -94,8 +94,7 @@ def twilio_call():
 
         # Twilio utilisera cette URL pour la voix (TwiML)
         # On utilise une URL de démo fournie par Twilio
-        twiml_url = "https://demo.twilio.com/docs/voice.xml"
-
+        twiml_url = "https://telephonieexcel-backend.onrender.com/twilio/voice"
         call = client.calls.create(
             to=to_number,
             from_=from_number,
