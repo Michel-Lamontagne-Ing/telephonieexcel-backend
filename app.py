@@ -138,22 +138,20 @@ def twilio_call():
 # quoi dire à la personne.
 # ---------------------------------------------------------------------
 
-@app.route("/twilio/voice", methods=["POST", "GET"])
+@app.route("/twilio/voice", methods=["POST"])
 def twilio_voice():
-    """
-    Fournit la réponse vocale (TwiML) utilisée par Twilio pendant l'appel.
-    Message en français, voix 'alice'.
-    """
+    """Réponse vocale envoyée à Twilio pendant l'appel."""
     response = VoiceResponse()
+
+    # Ton message en français
     response.say(
-        "Bonjour, ceci est un appel automatique généré par votre système Excel. "
+        "Bonjour, ceci est un appel de test effectué depuis votre application Excel. "
         "Passez une excellente journée !",
         voice="alice",
         language="fr-FR"
     )
 
-    # On renvoie du XML (TwiML)
-    return Response(str(response), mimetype="application/xml")
+    return Response(str(response), mimetype="text/xml")
 
 
 # ---------------------------------------------------------------------
