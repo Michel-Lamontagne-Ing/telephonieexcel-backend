@@ -1,18 +1,15 @@
- from flask import Flask, request, jsonify, Response
+from flask import Flask, request, jsonify, Response
+from twilio.rest import Client
 from twilio.twiml.voice_response import VoiceResponse
 import os
 
 app = Flask(__name__)
 
-# Twilio routes added  
-
-# --- Routes simples de test --------------------------------------------------
-
+# -----------------------
+# Page d'accueil
+# -----------------------
 @app.route("/")
 def index():
-    """
-    Petit résumé des endpoints disponibles.
-    """
     return jsonify({
         "service": "telephonieexcel-backend",
         "endpoints": [
@@ -22,83 +19,74 @@ def index():
         ]
     })
 
-
+# -----------------------
+# Test simple
+# -----------------------
 @app.route("/hello")
 def hello():
-    """
-    Test basique : confirme que le backend répond.
-    """
     return jsonify({"message": "Hello from Excel Backend!"})
 
 
-# --- Utilitaires Twilio ------------------------------------------------------
-
+# ---------------------------------------------------
+# TWILIO : Utilities
+# ---------------------------------------------------
 def get_twilio_client():
-    """
-    Lit les variables d'environnement et construit le client Twilio.
-    Lève une exception explicite si quelque chose manque.
-    """
-    account_sid = os.environ.get("TWILIO_ACCOUNT_SID")
-    auth_token = os.environ.get("TWILIO_AUTH_TOKEN")
-    from_number = os.environ.get("TWILIO_FROM_NUMBER")
+    account_sid = os.getenv("TWILIO_ACCOUNT_SID")
+    auth_token = os.getenv("TWILIO_AUTH_TOKEN")
 
-    if not account_sid or not auth_token or not from_number:
-        raise RuntimeError(
-            "Missing one of TWILIO_ACCOUNT_SID / TWILIO_AUTH_TOKEN / TWILIO_FROM_NUMBER"
-        )
+    if not account_sid or not auth_token:
+        raise Exception("Twilio credentials missing")
 
     client = Client(account_sid, auth_token)
-    return client, from_number, account_sid
+    return client, account_sid
 
 
-# --- Endpoints Twilio --------------------------------------------------------
-
-@app.route("/twilio/check", methods=["GET"])
+# ---------------------------------------------------
+# TWILIO : Vérification des identifiants
+# ---------------------------------------------------
+@app.route("/twilio/check")
 def twilio_check():
-    """
-    Vérifie simplement qu'on peut construire un client Twilio
-    avec les variables d'environnement.
-    """
     try:
-        _, _, account_sid = get_twilio_client()
+        client, sid = get_twilio_client()
         return jsonify({
             "status": "ok",
-            "account_sid": account_sid
+            "account_sid": sid
         })
     except Exception as e:
-        # On renvoie l'erreur dans la réponse pour le debug
-        return jsonify({
-            "status": "error",
-            "error": str(e)
-        }), 500
+        return jsonify({"status": "error", "error": str(e)}), 500
 
 
-@app.route("/twilio/call", methods=["GET", "POST"])
+# ---------------------------------------------------
+# TWILIO : Réponse vocale (Twilio va appeler cette URL)
+# ---------------------------------------------------
+@app.route("/twilio/voice", methods=["POST"])
+def twilio_voice():
+    response = VoiceResponse()
+    response.say("Bonjour, ceci est un appel de test depuis votre système Excel.", voice="alice")
+    return Response(str(response), mimetype="text/xml")
+
+
+# ---------------------------------------------------
+# TWILIO : Effectuer un appel
+# ---------------------------------------------------
+@app.route("/twilio/call", methods=["GET"])
 def twilio_call():
-    """
-    Lance un appel sortant via Twilio.
+    to_number = request.args.get("to")
 
-    Paramètre :
-      - to : numéro de destination (format E.164, ex: +15145551234)
-
-    Exemple:
-      https://telephonieexcel-backend.onrender.com/twilio/call?to=+15145551234
-    """
-    # Récupère le numéro cible soit en query string, soit dans le body (POST)
-    to_number = request.args.get("to") or request.form.get("to")
     if not to_number:
         return jsonify({"error": "Missing 'to' parameter"}), 400
 
     try:
-        client, from_number, _ = get_twilio_client()
+        client, account_sid = get_twilio_client()
+        from_number = os.getenv("TWILIO_FROM_NUMBER")
 
-        # Twilio utilisera cette URL pour la voix (TwiML)
-        # On utilise une URL de démo fournie par Twilio
-        twiml_url = "https://telephonieexcel-backend.onrender.com/twilio/voice"
+        if not from_number:
+            return jsonify({"error": "Missing TWILIO_FROM_NUMBER"}), 500
+
         call = client.calls.create(
             to=to_number,
             from_=from_number,
-            url=twiml_url
+            url="https://telephonieexcel-backend.onrender.com/twilio/voice"
         )
 
         return jsonify({
@@ -109,29 +97,11 @@ def twilio_call():
         })
 
     except Exception as e:
-        return jsonify({
-            "status": "error",
-            "error": str(e)
-        }), 500
+        return jsonify({"status": "error", "error": str(e)}), 500
 
-@app.route("/twilio/voice", methods=["POST"])
-def twilio_voice():
-    """TwiML renvoyé à Twilio pour l'appel vocal."""
-    resp = VoiceResponse()
-    resp.say(
-        "Bonjour Michel. Ceci est un appel de test depuis l'application Excel et Twilio.",
-        voice="alice",
-        language="fr-CA"
-    )
-    resp.pause(length=1)
-    resp.say(
-        "Tout fonctionne correctement. Au revoir et à bientôt.",
-        voice="alice",
-        language="fr-CA"
-    )
-    return Response(str(resp), mimetype="text/xml")
-    
-# Point d'entrée pour gunicorn : "gunicorn app:app"
+
+# ---------------------------------------------------
+# Démarrage local (Render utilise gunicorn)
+# ---------------------------------------------------
 if __name__ == "__main__":
-    # Utile uniquement si tu lances l'app en local
     app.run(host="0.0.0.0", port=5000, debug=True)
