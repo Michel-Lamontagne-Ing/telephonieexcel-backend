@@ -1,6 +1,9 @@
 from flask import Flask, request, jsonify, Response
 from twilio.rest import Client
 from twilio.twiml.voice_response import VoiceResponse
+################################################################################
+from twilio.twiml.messaging_response import MessagingResponse
+################################################################################
 import os
 
 app = Flask(__name__)
@@ -130,6 +133,20 @@ def twilio_call():
     except Exception as e:
         return jsonify({"status": "error", "error": str(e)}), 500
 
+################################################################################
+@app.route("/twilio/sms", methods=["POST"])
+def twilio_sms():
+    from_number = request.form.get("From")
+    body = request.form.get("Body", "")
+
+    # Ici tu pourras plus tard enregistrer le SMS en base ou dans Excel
+    print(f"SMS reçu de {from_number}: {body}")
+
+    resp = MessagingResponse()
+    resp.message("Merci pour votre message ! Nous vous contacterons bientôt.")
+    return Response(str(resp), mimetype="text/xml")
+
+################################################################################
 
 # ---------------------------------------------------------------------
 # Réponse vocale Twilio : /twilio/voice
@@ -138,7 +155,7 @@ def twilio_call():
 # quoi dire à la personne.
 # ---------------------------------------------------------------------
 
-@app.route("/twilio/voice", methods=["POST"])
+@app.route("/twilio/voice", methods=["GET", "POST"])
 def twilio_voice():
     """Réponse vocale envoyée à Twilio pendant l'appel."""
     response = VoiceResponse()
